@@ -244,6 +244,8 @@ impl<'a, 'tcx> LateLintPass<'a, 'tcx> for UnusedResults {
                 }
                 ty::Array(ty, mut len) => {
                     // Try to evaluate the length if it's unevaluated.
+                    // FIXME(59369): we should be able to remove this once we merge
+                    // https://github.com/rust-lang/rust/pull/59369.
                     if let ConstValue::Unevaluated(def_id, substs) = len.val {
                         let instance = ty::Instance::resolve(
                             cx.tcx.global_tcx(),
@@ -261,8 +263,9 @@ impl<'a, 'tcx> LateLintPass<'a, 'tcx> for UnusedResults {
                     }
 
                     match len.assert_usize(cx.tcx) {
-                        // If the array is definitely non-empty, we can do `#[must_use]` checking.
-                        Some(n) if n != 0 => {
+                        Some(0) => false, // Empty arrays won't contain any `#[must_use]` types.
+                        // If the array may be non-empty, we do `#[must_use]` checking.
+                        _ => {
                             let descr_pre = &format!(
                                 "{}array{} of ",
                                 descr_pre,
@@ -270,8 +273,6 @@ impl<'a, 'tcx> LateLintPass<'a, 'tcx> for UnusedResults {
                             );
                             check_must_use_ty(cx, ty, expr, span, descr_pre, descr_post, true)
                         }
-                        // Otherwise, we don't lint, to avoid false positives.
-                        _ => false,
                     }
                 }
                 _ => false,
