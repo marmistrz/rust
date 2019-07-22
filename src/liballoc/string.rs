@@ -1571,7 +1571,7 @@ impl String {
              Unbounded => {},
         };
 
-        unsafe {
+        let _ = unsafe {
             self.as_mut_vec()
         }.splice(range, replace_with.bytes());
     }
